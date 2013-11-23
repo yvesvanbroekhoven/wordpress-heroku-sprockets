@@ -36,7 +36,7 @@ Or you can compile manually:
 
 ```
 $ bundle exec rake compile
-``
+```
 
 
 ## TODO
