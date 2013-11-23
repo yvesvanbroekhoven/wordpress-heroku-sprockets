@@ -1,15 +1,9 @@
-guard 'sprockets',
-  :destination => 'wp-content/themes/example-theme/public',
-  :asset_paths => [
-    'wp-content/themes/example-theme/assets/javascripts',
-    'wp-content/themes/example-theme/assets/stylesheets'
-  ],
-  :minify => true do
-    watch (%r{wp-content/themes/example-theme/assets/javascripts/(modules|initializers)/.*.js.*}){ |m|
-      "wp-content/themes/example-theme/assets/application.js"
-    }
-    watch (%r{wp-content/themes/example-theme/assets/stylesheets/(base|modules)/.*.css.*}){ |m|
-      "wp-content/themes/example-theme/assets/application.css.scss"
-    }
-    #watch ("wp-content/themes/example-theme/assets/javascripts/application.js")
+THEME_NAME = "example-theme"
+
+guard 'rake', :task => 'compile' do
+  watch(%r{^wp-content/themes/example-theme/assets/javascripts/.*.js})
+  watch(%r{^wp-content/themes/example-theme/assets/javascripts/(initializers|modules)/.*.js})
+
+  watch(%r{^wp-content/themes/example-theme/assets/stylesheets/.*.scss})
+  watch(%r{^wp-content/themes/example-theme/assets/stylesheets/(base|modules)/.*.scss})
 end

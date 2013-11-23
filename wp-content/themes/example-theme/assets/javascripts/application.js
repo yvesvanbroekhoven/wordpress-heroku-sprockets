@@ -11,3 +11,5 @@
 //
 //= require_tree ./modules
 //= require_tree ./initializers
+
+require('./initializers/application');
