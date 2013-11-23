@@ -11,6 +11,7 @@ This means support instant support for:
 * SASS
 * Compass
 * Bower
+* CommonJS
 * Minifyied CSS & Javascript
 
 
@@ -35,7 +36,7 @@ Or you can compile manually:
 
 ```
 $ bundle exec rake compile
-```
+``
 
 
 ## TODO
