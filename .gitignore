@@ -1,2 +1,4 @@
-wp-content/uploads
 .DS_Store
+wp-content/themes/*/assets/vendor/components
+wp-content/uploads
+

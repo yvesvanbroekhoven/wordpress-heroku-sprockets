@@ -1,0 +1,9 @@
+{
+  "name": "wordpress-heroku-sprockets",
+  "private": true,
+  "version": "0.0.1",
+  "main": "javascripts/application.js",
+  "dependencies": {
+    "jquery": "~1.10.2"
+  }
+}
