@@ -16,6 +16,8 @@ BUILD_DIR     = ROOT.join("wp-content/themes/#{THEME_NAME}/public")
 SOURCE_DIR    = ROOT.join("wp-content/themes/#{THEME_NAME}/assets")
 
 task :compile do
+  sh "bower install"
+
   sprockets = Sprockets::Environment.new(ROOT) do |env|
     env.logger = Logger.new(STDOUT)
   end
