@@ -8,6 +8,7 @@ require "uglifier"
 
 Bundler.require
 
+APP_NAME      = "wordpress-heroku-sprockets"
 THEME_NAME    = "example-theme"
 
 ROOT          = Pathname(File.dirname(__FILE__))
@@ -42,33 +43,24 @@ namespace :deploy do
 
   desc "Deploy the app to staging environment"
   task :staging do
-    app     = "wordpress-heroku-sprockets-s"
-    remote  = "git@heroku.com:wordpress-heroku-sprockets-s.git"
+    app     = "#{APP_NAME}-s"
+    remote  = "git@heroku.com:#{APP_NAME}-s.git"
 
     sh "heroku maintenance:on --app #{app}"
+    sh "heroku config:set BUILDPACK_URL=https://github.com/yvesvanbroekhoven/heroku-buildpack-wordpress --app #{app}"
     sh "git push #{remote} master"
-    #sh "heroku addons:add scheduler:standard --app #{app}"
-    #sh "heroku addons:add cleardb:ignite --app #{app}"
-    #sh "heroku run rake heroku:wp_config:staging --app #{app}"
-    #sh "heroku run rake bower_install --app #{app}"
     sh "heroku maintenance:off --app #{app}"
   end
 
-end
+  desc "Deploy the app to production environment"
+  task :production do
+    app     = "#{APP_NAME}-p"
+    remote  = "git@heroku.com:#{APP_NAME}-p.git"
 
-
-namespace :heroku do
-
-  namespace :wp_config do
-
-    task :staging do
-      sh "mv wp-config-staging.php wp-config.php"
-    end
-
-  end
-
-  task :bower_install do
-    sh "bower install"
+    sh "heroku maintenance:on --app #{app}"
+    sh "heroku config:set BUILDPACK_URL=https://github.com/yvesvanbroekhoven/heroku-buildpack-wordpress --app #{app}"
+    sh "git push #{remote} master"
+    sh "heroku maintenance:off --app #{app}"
   end
 
 end
