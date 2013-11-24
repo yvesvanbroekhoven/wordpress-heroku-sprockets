@@ -14,6 +14,10 @@
  * @package WordPress
  */
 
+/** Define ENV global */
+define("ENV", getenv("WP_ENV"));
+
+/** Parse Heroku ClearDB url */
 $url = parse_url(getenv("CLEARDB_DATABASE_URL"));
 
 // ** MySQL settings - You can get this info from your web host ** //
@@ -41,38 +45,8 @@ define("WP_SITEURL", "http://" . $_SERVER["HTTP_HOST"]);
 /** WP_HOME is your Blog Address (URL). */
 define('WP_HOME', "http://" . $_SERVER["HTTP_HOST"]);
 
-/** Define ENV global */
-define("ENV", getenv("WP_ENV"));
-
 /** Disable theme editor */
 define('DISALLOW_FILE_EDIT', TRUE);
-
-
-/**
- * Configure S3
- */
-
-/** Enables the plugin and use configuration from contants. */
-define('WPRO_ON', true);
-
-/** Amazon S3 is the service. */
-define('WPRO_SERVICE', 's3');
-
-/** Prepend all URI paths at S3 with this folder. In most cases, you probably want this to be empty. */
-define('WPRO_FOLDER', getenv("AWS_FOLDER"));
-
-/** Authentication keys */
-define('WPRO_AWS_KEY', getenv("AWS_KEY"));
-define('WPRO_AWS_SECRET', getenv("AWS_SECRET"));
-
-/** The name of the Amazon S3 bucket where your files should be stored. */
-define('WPRO_AWS_BUCKET', getenv("AWS_BUCKET"));
-
-/** If you have a virthost for your Amazon S3 bucket, it should be there. */
-define('WPRO_AWS_VIRTHOST', getenv("AWS_VIRTHOST"));
-
-/** The Amazon endpoint datacenter where your S3 bucket is. Se list of endpoints below. */
-define('WPRO_AWS_ENDPOINT', 's3.amazonaws.com');
 
 
 /**
