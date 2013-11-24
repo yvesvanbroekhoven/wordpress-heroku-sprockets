@@ -15,6 +15,7 @@ COMPASS_DIR   = Pathname(Gem.loaded_specs['compass'].full_gem_path)
 BUILD_DIR     = ROOT.join("wp-content/themes/#{THEME_NAME}/public")
 SOURCE_DIR    = ROOT.join("wp-content/themes/#{THEME_NAME}/assets")
 
+
 task :compile do
   sh "bower install"
 
@@ -34,4 +35,20 @@ task :compile do
 
   css_asset = sprockets.find_asset('application.css')
   css_asset.write_to(BUILD_DIR.join('application.css'))
+end
+
+
+namespace :deploy do
+  desc "Deploy the app"
+
+  task :staging do
+    app     = "wordpress-heroku-sprockets-s"
+    remote  = "git@heroku.com:wordpress-heroku-sprockets-s.git"
+
+    sh "heroku maintenance:on --app #{app}"
+    sh "git push #{remote} master"
+    sh "mv wp-config-staging.php wp-config.php"
+    sh "heroku maintenance:off --app #{app}"
+  end
+
 end
