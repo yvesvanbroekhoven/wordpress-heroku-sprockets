@@ -47,10 +47,10 @@ namespace :deploy do
 
     sh "heroku maintenance:on --app #{app}"
     sh "git push #{remote} master"
-    sh "heroku addons:add scheduler:standard --app #{app}"
-    sh "heroku addons:add cleardb:ignite --app #{app}"
-    sh "heroku run rake heroku:wp_config:staging"
-    sh "heroku run rake bower_install"
+    #sh "heroku addons:add scheduler:standard --app #{app}"
+    #sh "heroku addons:add cleardb:ignite --app #{app}"
+    sh "heroku run rake heroku:wp_config:staging --app #{app}"
+    sh "heroku run rake bower_install --app #{app}"
     sh "heroku maintenance:off --app #{app}"
   end
 
