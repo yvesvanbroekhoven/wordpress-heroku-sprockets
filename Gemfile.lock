@@ -1,6 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    addressable (2.3.5)
     chunky_png (1.2.9)
     coderay (1.1.0)
     compass (0.13.alpha.12)
@@ -8,6 +9,7 @@ GEM
       json
       listen (~> 1.1.0)
       sass (~> 3.3.0.rc.1)
+    excon (0.25.3)
     execjs (2.0.2)
     ffi (1.9.3)
     formatador (0.2.4)
@@ -20,15 +22,27 @@ GEM
     guard-rake (0.0.9)
       guard
       rake
+    heroku (3.0.1)
+      heroku-api (~> 0.3.7)
+      launchy (>= 0.3.2)
+      netrc (~> 0.7.7)
+      rest-client (~> 1.6.1)
+      rubyzip
+    heroku-api (0.3.15)
+      excon (~> 0.25.1)
     hike (1.2.3)
     json (1.8.1)
+    launchy (2.4.0)
+      addressable (~> 2.3)
     listen (1.1.6)
       rb-fsevent (>= 0.9.3)
       rb-inotify (>= 0.9)
       rb-kqueue (>= 0.2)
     lumberjack (1.0.4)
     method_source (0.8.2)
+    mime-types (2.0)
     multi_json (1.8.2)
+    netrc (0.7.7)
     pry (0.9.12.3)
       coderay (~> 1.0)
       method_source (~> 0.8)
@@ -40,6 +54,9 @@ GEM
       ffi (>= 0.5.0)
     rb-kqueue (0.2.0)
       ffi (>= 0.5.0)
+    rest-client (1.6.7)
+      mime-types (>= 1.16)
+    rubyzip (1.1.0)
     sass (3.3.0.rc.2)
       listen (~> 1.1.0)
     slop (3.4.7)
@@ -62,6 +79,7 @@ PLATFORMS
 DEPENDENCIES
   compass (>= 0.13.alpha.10)
   guard-rake
+  heroku
   rake
   sass
   sprockets

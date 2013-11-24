@@ -39,19 +39,36 @@ end
 
 
 namespace :deploy do
-  desc "Deploy the app"
 
+  desc "Deploy the app to staging environment"
   task :staging do
     app     = "wordpress-heroku-sprockets-s"
     remote  = "git@heroku.com:wordpress-heroku-sprockets-s.git"
 
     sh "heroku maintenance:on --app #{app}"
     sh "git push #{remote} master"
-    sh "heroku addons:add scheduler:standard"
-    sh "heroku addons:add cleardb:ignite"
-    sh "mv wp-config-staging.php wp-config.php"
-    sh "bower install"
+    sh "heroku addons:add scheduler:standard --app #{app}"
+    sh "heroku addons:add cleardb:ignite --app #{app}"
+    sh "heroku run rake heroku:wp_config:staging"
+    sh "heroku run rake bower_install"
     sh "heroku maintenance:off --app #{app}"
+  end
+
+end
+
+
+namespace :heroku do
+
+  namespace :wp_config do
+
+    task :staging do
+      sh "mv wp-config-staging.php wp-config.php"
+    end
+
+  end
+
+  task :bower_install do
+    sh "bower install"
   end
 
 end
