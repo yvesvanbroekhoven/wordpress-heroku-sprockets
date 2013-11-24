@@ -431,7 +431,6 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
                         's3-us-west-1.amazonaws.com' => 'US West (Northern California) Region',
                         's3-eu-west-1.amazonaws.com' => 'EU (Ireland) Region',
                         's3-ap-southeast-1.amazonaws.com' => 'Asia Pacific (Singapore) Region',
-                        's3-ap-southeast-2.amazonaws.com' => 'Asia Pacific (Sydney) Region',
                         's3-ap-northeast-1.amazonaws.com' => 'Asia Pacific (Tokyo) Region',
                         's3-sa-east-1.amazonaws.com' => 'South America (Sao Paulo) Region'
                       );
@@ -526,10 +525,9 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
     if (!is_array($data) || !isset($data['sizes']) || !is_array($data['sizes'])) return $data;
 
     $upload_dir = wp_upload_dir();
-    $filepath = $upload_dir['basedir'] . '/' . preg_replace('/^(.+\/)?.+$/', '\\1', $data['file']);
     foreach ($data['sizes'] as $size => $sizedata) {
-      $file = $filepath . $sizedata['file'];
-      $url = $upload_dir['baseurl'] . substr($file, strlen($upload_dir['basedir']));
+      $file = $upload_dir['basedir'] . '/' . $sizedata['file'];
+      $url = $upload_dir['baseurl'].'/' . $sizedata['file'];
 
       $mime = 'application/octet-stream';
       switch(substr($file, -4)) {
@@ -600,7 +598,7 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
 
     switch ($mime_type) {
       case 'image/jpeg':
-        imagejpeg($image, $tmpfile, 90);
+        imagejpeg($image, $tmpfile, apply_filters('jpeg_quality', 90, 'edit_image'));
         break;
       case 'image/png':
         imagepng($image, $tmpfile);
