@@ -47,6 +47,8 @@ namespace :deploy do
 
     sh "heroku maintenance:on --app #{app}"
     sh "git push #{remote} master"
+    sh "heroku addons:add scheduler:standard"
+    sh "heroku addons:add cleardb:ignite"
     sh "mv wp-config-staging.php wp-config.php"
     sh "bower install"
     sh "heroku maintenance:off --app #{app}"
