@@ -9,7 +9,7 @@ Author URI: http://nurd.nu/
 License: GPLv2
  */
 
-// define('WPRO_DEBUG', true);
+define('WPRO_DEBUG', true);
 
 // PHP < 5.2.1 compatibility
 if ( !function_exists('sys_get_temp_dir')) {
