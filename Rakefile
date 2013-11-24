@@ -48,6 +48,7 @@ namespace :deploy do
     sh "heroku maintenance:on --app #{app}"
     sh "git push #{remote} master"
     sh "mv wp-config-staging.php wp-config.php"
+    sh "bower install"
     sh "heroku maintenance:off --app #{app}"
   end
 
