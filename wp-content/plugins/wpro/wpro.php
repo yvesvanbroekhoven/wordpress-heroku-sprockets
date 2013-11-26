@@ -9,80 +9,7 @@ Author URI: http://nurd.nu/
 License: GPLv2
  */
 
-define('WPRO_DEBUG', true);
-
-// PHP < 5.2.1 compatibility
-if ( !function_exists('sys_get_temp_dir')) {
-  function sys_get_temp_dir() {
-    if( $temp = getenv('TMP') ) return $temp;
-    if( $temp = getenv('TEMP') ) return $temp;
-    if( $temp = getenv('TMPDIR') ) return $temp;
-    $temp = tempnam(__FILE__, '');
-    if (file_exists($temp)) {
-      unlink($temp);
-      return dirname($temp);
-    }
-    return null;
-  }
-}
-
-// open_basedir / safe_mode disallows CURLOPT_FOLLOWLOCATION
-function curl_exec_follow($ch, &$maxredirect = null) {
-    $mr = $maxredirect === null ? 5 : intval($maxredirect);
-    if (ini_get('open_basedir') == '' && ini_get('safe_mode' == 'Off')) {
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $mr > 0);
-        curl_setopt($ch, CURLOPT_MAXREDIRS, $mr);
-    } else {
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-        if ($mr > 0) {
-            $newurl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-
-            $rch = curl_copy_handle($ch);
-            curl_setopt($rch, CURLOPT_HEADER, true);
-            curl_setopt($rch, CURLOPT_NOBODY, true);
-            curl_setopt($rch, CURLOPT_FORBID_REUSE, false);
-            curl_setopt($rch, CURLOPT_RETURNTRANSFER, true);
-            do {
-                curl_setopt($rch, CURLOPT_URL, $newurl);
-                $header = curl_exec($rch);
-                if (curl_errno($rch)) {
-                    $code = 0;
-                } else {
-                    $code = curl_getinfo($rch, CURLINFO_HTTP_CODE);
-                    if ($code == 301 || $code == 302) {
-                        preg_match('/Location:(.*?)\n/', $header, $matches);
-                        $newurl = trim(array_pop($matches));
-                    } else {
-                        $code = 0;
-                    }
-                }
-            } while ($code && --$mr);
-            curl_close($rch);
-            if (!$mr) {
-                if ($maxredirect === null) {
-                    trigger_error('Too many redirects. When following redirects, libcurl hit the maximum amount.', E_USER_WARNING);
-                } else {
-                    $maxredirect = 0;
-                }
-                return false;
-            }
-            curl_setopt($ch, CURLOPT_URL, $newurl);
-        }
-    }
-    return curl_exec($ch);
-}
-
-function wpro_get_option($option, $default = false) {
-  if (!defined('WPRO_ON') || !WPRO_ON) {
-    return get_site_option($option, $default);
-  }
-  $constantName = strtoupper(str_replace('-', '_', $option));
-  if (defined($constantName)) {
-    return constant($constantName);
-  } else {
-    return $default;
-  }
-}
+// define('WPRO_DEBUG', true);
 
 new WordpressReadOnly;
 
@@ -141,7 +68,8 @@ class WordpressReadOnlyBackend extends WordpressReadOnlyGeneric {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_NOBODY, 1);
     curl_setopt($ch, CURLOPT_URL, $path);
-    $result = trim(curl_exec_follow($ch));
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    $result = trim(curl_exec($ch));
 
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $this->debug('-> http return code: ' . $httpCode);
@@ -153,12 +81,44 @@ class WordpressReadOnlyBackend extends WordpressReadOnlyGeneric {
 
 }
 
-class WordpressReadOnlyFTP extends WordpressReadOnlyBackend {
+class WordpressReadOnlyKlandestino extends WordpressReadOnlyBackend {
+
+  public $name;
+  public $secret;
 
   function __construct() {
+    $this->name = get_option('wpro-klandestino-name');
+    $this->secret = get_option('wpro-klandestino-secret');
   }
 
   function upload($file, $fullurl, $mime) {
+
+    $this->debug('WordpressReadOnlyKlandestino::upload("' . $file . '", "' . $fullurl . '", "' . $mime . '");');
+
+    $fullurl = $this->url_normalizer($fullurl);
+
+    if (!preg_match('/^http:\/\/([^\/]+)\/(.*)$/', $fullurl, $regs)) return false;
+    if (substr($regs[2], 0, strlen($this->name) + 1) != $this->name . '/') return false;
+
+    if (!file_exists($file)) return false;
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_VERBOSE, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_URL, $fullurl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, array(
+      'pw' => $this->secret,
+      'upload' => '@' . $file
+    ));
+    $result = trim(curl_exec($ch));
+
+    $this->removeTemporaryLocalData($file);
+    if ($result == 'OK') return true;
+
+    echo('ERROR! Klandestino CDN Says: ' . $result . '<br />');
+
     return false;
   }
 
@@ -172,10 +132,10 @@ class WordpressReadOnlyS3 extends WordpressReadOnlyBackend {
   public $endpoint;
 
   function __construct() {
-    $this->key = wpro_get_option('wpro-aws-key');
-    $this->secret = wpro_get_option('wpro-aws-secret');
-    $this->bucket = wpro_get_option('wpro-aws-bucket');
-    $this->endpoint = wpro_get_option('wpro-aws-endpoint');
+    $this->key = get_option('wpro-aws-key');
+    $this->secret = get_option('wpro-aws-secret');
+    $this->bucket = get_option('wpro-aws-bucket');
+    $this->endpoint = get_option('wpro-aws-endpoint');
   }
 
   function upload($file, $fullurl, $mime) {
@@ -261,17 +221,8 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
   public $tempdir = '/tmp';
 
   function __construct() {
-    if (!defined('WPRO_ON') || !WPRO_ON) {
-      add_action('admin_init', array($this, 'admin_init')); // Register the settings.
-      // if ($this->is_trusted()) { // To early to find out, however in admin_init hook, it seems(?) to be too late to add network_admin_menu (which is weird, but i don't get it working there.)
-        if (is_multisite()) {
-          add_action('network_admin_menu', array($this, 'network_admin_menu'));
-        } else {
-          add_action('admin_menu', array($this, 'admin_menu')); // Will add the settings menu.
-        }
-        add_action('admin_post_wpro_settings_POST', array($this, 'admin_post')); // Gets called from plugin admin page POST request.
-      // }
-    }
+    add_action('admin_init', array($this, 'admin_init')); // Register the settings.
+    add_action('admin_menu', array($this, 'admin_menu')); // Will add the settings menu.
     add_filter('wp_handle_upload', array($this, 'handle_upload')); // The very filter that takes care of uploads.
     add_filter('upload_dir', array($this, 'upload_dir')); // Sets the paths and urls for uploads.
     add_filter('wp_generate_attachment_metadata', array($this, 'generate_attachment_metadata')); // We use this filter to store resized versions of the images.
@@ -281,9 +232,9 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
     add_filter('wp_handle_upload_prefilter', array($this, 'handle_upload_prefilter')); // This is where we check for filename dupes (and change them to avoid overwrites).
     add_filter('shutdown', array($this, 'shutdown'));
 
-    switch (wpro_get_option('wpro-service')) {
-    case 'ftp':
-      $this->backend = new WordpressReadOnlyFTP();
+    switch (get_option('wpro-service')) {
+    case 'klandestino':
+      $this->backend = new WordpressReadOnlyKlandestino();
       break;
     default:
       $this->backend = new WordpressReadOnlyS3();
@@ -294,36 +245,29 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
 
   }
 
-  function is_trusted() {
-    if (is_multisite()) {
-      if (is_super_admin()) {
-        return true;
-      }
-    } else {
-      if (current_user_can('manage_options')) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /* * * * * * * * * * * * * * * * * * * * * * *
     REGISTER THE SETTINGS:
   * * * * * * * * * * * * * * * * * * * * * * */
 
   function admin_init() {
-    add_site_option('wpro-service', '');
-    add_site_option('wpro-folder', '');
-    add_site_option('wpro-aws-key', '');
-    add_site_option('wpro-aws-secret', '');
-    add_site_option('wpro-aws-bucket', '');
-    add_site_option('wpro-aws-virthost', '');
-    add_site_option('wpro-aws-endpoint', '');
-    add_site_option('wpro-ftp-server', '');
-    add_site_option('wpro-ftp-user', '');
-    add_site_option('wpro-ftp-password', '');
-    add_site_option('wpro-ftp-pasvmode', '');
-    add_site_option('wpro-ftp-webroot', '');
+    register_setting('wpro-settings-group', 'wpro-service');
+    register_setting('wpro-settings-group', 'wpro-folder');
+    register_setting('wpro-settings-group', 'wpro-aws-key');
+    register_setting('wpro-settings-group', 'wpro-aws-secret');
+    register_setting('wpro-settings-group', 'wpro-aws-bucket');
+    register_setting('wpro-settings-group', 'wpro-aws-virthost');
+    register_setting('wpro-settings-group', 'wpro-aws-endpoint');
+    register_setting('wpro-settings-group', 'wpro-klandestino-name');
+    register_setting('wpro-settings-group', 'wpro-klandestino-secret');
+    add_option('wpro-service');
+    add_option('wpro-folder');
+    add_option('wpro-aws-key');
+    add_option('wpro-aws-secret');
+    add_option('wpro-aws-bucket');
+    add_option('wpro-aws-virthost');
+    add_option('wpro-aws-endpoint');
+    add_option('wpro-klandestino-name');
+    add_option('wpro-klandestino-secret');
   }
 
 
@@ -334,29 +278,12 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
   function admin_menu() {
     add_options_page('WPRO Plugin Settings', 'WPRO Settings', 'manage_options', 'wpro', array($this, 'admin_form'));
   }
-  function network_admin_menu() {
-    add_submenu_page('settings.php', 'WPRO Plugin Settings', 'WPRO Settings', 'manage_options', 'wpro', array($this, 'admin_form'));
-  }
-  function admin_post() {
-    // We are handling the POST settings stuff ourselves, instead of using the Settings API.
-    // This is because the Settings API has no way of storing network wide options in multisite installs.
-    if (!$this->is_trusted()) return false;
-    if ($_POST['action'] != 'wpro_settings_POST') return false;
-    foreach (array('wpro-service', 'wpro-folder', 'wpro-aws-key', 'wpro-aws-secret', 'wpro-aws-bucket', 'wpro-aws-virthost', 'wpro-aws-endpoint', 'wpro-ftp-server', 'wpro-ftp-user', 'wpro-ftp-password', 'wpro-ftp-pasvmode') as $allowedPostData) {
-      $data = false;
-      if (isset($_POST[$allowedPostData])) $data = stripslashes($_POST[$allowedPostData]);
-      update_site_option($allowedPostData, $data);
-    }
-    header('Location: ' . admin_url('network/settings.php?page=wpro&updated=true'));
-    exit();
-  }
-
   function admin_form() {
-    if (!$this->is_trusted()) {
+    if (!current_user_can ('manage_options'))  {
       wp_die ( __ ('You do not have sufficient permissions to access this page.'));
     }
 
-    $wproService = wpro_get_option('wpro-service');
+      $wproService = get_option('wpro-service');
 
     ?>
       <script language="JavaScript">
@@ -367,9 +294,9 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
                 $('#wpro-service-s3-div').slideDown();
               });
             });
-            $('#wpro-service-ftp').change(function() {
+            $('#wpro-service-klandestino').change(function() {
               $('.wpro-service-div:visible').slideUp(function() {
-                $('#wpro-service-ftp-div').slideDown();
+                $('#wpro-service-klandestino-div').slideDown();
               });
             });
           });
@@ -378,46 +305,38 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
       <div class="wrap">
         <div id="icon-plugins" class="icon32"><br /></div>
         <h2>WP Read-Only (WPRO)</h2>
-
-        <?php if ($_GET['updated']) { ?>
-          <div id="message" class="updated">
-            <p>Options saved.</p>
-          </div>
-        <?php } ?>
-
-        <form name="wpro-settings-form" action="<?php echo admin_url('admin-post.php');?>" method="post">
-          <input type="hidden" name="action" value="wpro_settings_POST" />
-
+        <form name="wpro-settings-form" action="options.php" method="post">
+          <?php settings_fields ('wpro-settings-group'); ?>
           <h3><?php echo __('Common Settings'); ?></h3>
           <table class="form-table">
             <tr>
               <th><label>Storage Service</label></th>
               <td>
-                <input name="wpro-service" id="wpro-service-s3" type="radio" value="s3" <?php if ($wproService != 'ftp') echo ('checked="checked"'); ?>/> <label for="wpro-service-s3">Amazon S3</label><br />
-                <input name="wpro-service" id="wpro-service-ftp" type="radio" value="ftp" <?php if ($wproService == 'ftp') echo ('checked="checked"'); ?>/> <label for="wpro-service-ftp">FTP Server</label><br />
+                <input name="wpro-service" id="wpro-service-s3" type="radio" value="s3" <?php if ($wproService != 'klandestino') echo ('checked="checked"'); ?>/> <label for="wpro-service-s3">Amazon S3</label><br />
+<!--                <input name="wpro-service" id="wpro-service-klandestino" type="radio" value="klandestino" <?php if ($wproService == 'klandestino') echo ('checked="checked"'); ?>/> <label for="wpro-service-klandestino">Klandestino CDN</label><br />-->
               </td>
             </tr>
             <tr>
               <th><label for="wpro-folder">Prepend all paths with folder</th>
-              <td><input name="wpro-folder" id="wpro-folder" type="text" value="<?php echo(wpro_get_option('wpro-folder')); ?>" class="regular-text code" /></td>
+              <td><input name="wpro-folder" id="wpro-folder" type="text" value="<?php echo(get_option('wpro-folder')); ?>" class="regular-text code" /></td>
             </tr>
           </table>
-          <div class="wpro-service-div" id="wpro-service-s3-div" <?php if ($wproService == 'ftp') echo ('style="display:none"'); ?> >
+          <div class="wpro-service-div" id="wpro-service-s3-div" <?php if ($wproService == 'klandestino') echo ('style="display:none"'); ?> >
             <h3><?php echo __('Amazon S3 Settings'); ?></h3>
             <table class="form-table">
               <tr>
                 <th><label for="wpro-aws-key">AWS Key</label></th>
-                <td><input name="wpro-aws-key" id="wpro-aws-key" type="text" value="<?php echo wpro_get_option('wpro-aws-key'); ?>" class="regular-text code" /></td>
+                <td><input name="wpro-aws-key" id="wpro-aws-key" type="text" value="<?php echo get_option('wpro-aws-key'); ?>" class="regular-text code" /></td>
               </tr>
               <tr>
                 <th><label for="wpro-aws-secret">AWS Secret</label></th>
-                <td><input name="wpro-aws-secret" id="wpro-aws-secret" type="text" value="<?php echo wpro_get_option('wpro-aws-secret'); ?>" class="regular-text code" /></td>
+                <td><input name="wpro-aws-secret" id="wpro-aws-secret" type="text" value="<?php echo get_option('wpro-aws-secret'); ?>" class="regular-text code" /></td>
               </tr>
               <tr>
                 <th><label for="wpro-aws-bucket">S3 Bucket</label></th>
                 <td>
-                  <input name="wpro-aws-bucket" id="wpro-aws-bucket" type="text" value="<?php echo wpro_get_option('wpro-aws-bucket'); ?>" class="regular-text code" /><br />
-                  <input name="wpro-aws-virthost" id="wpro-aws-virthost" type="checkbox" value="1"  <?php if (wpro_get_option('wpro-aws-virthost')) echo('checked="checked"'); ?> /> Virtual hosting is enabled for this bucket.
+                  <input name="wpro-aws-bucket" id="wpro-aws-bucket" type="text" value="<?php echo get_option('wpro-aws-bucket'); ?>" class="regular-text code" /><br />
+                  <input name="wpro-aws-virthost" id="wpro-aws-virthost" type="checkbox" value="1"  <?php if (get_option('wpro-aws-virthost')) echo('checked="checked"'); ?> /> Virtual hosting is enabled for this bucket.
                 </td>
               </tr>
               <tr>
@@ -431,7 +350,6 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
                         's3-us-west-1.amazonaws.com' => 'US West (Northern California) Region',
                         's3-eu-west-1.amazonaws.com' => 'EU (Ireland) Region',
                         's3-ap-southeast-1.amazonaws.com' => 'Asia Pacific (Singapore) Region',
-                        's3-ap-southeast-2.amazonaws.com' => 'Asia Pacific (Sydney) Region',
                         's3-ap-northeast-1.amazonaws.com' => 'Asia Pacific (Tokyo) Region',
                         's3-sa-east-1.amazonaws.com' => 'South America (Sao Paulo) Region'
                       );
@@ -439,7 +357,7 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
 
                       foreach ($aws_regions as $endpoint => $endpoint_name) {
                         echo ('<option value="' . $endpoint . '"');
-                        if ($endpoint == wpro_get_option('wpro-aws-endpoint')) {
+                        if ($endpoint == get_option('wpro-aws-endpoint')) {
                           echo(' selected="selected"');
                         }
                         echo ('>' . $endpoint_name . '</option>');
@@ -450,16 +368,16 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
               </tr>
             </table>
           </div>
-          <div class="wpro-service-div" id="wpro-service-ftp-div" <?php if ($wproService != 'ftp') echo ('style="display:none"'); ?> >
-            <h3><?php echo __('FTP Settings'); ?></h3>
+          <div class="wpro-service-div" id="wpro-service-klandestino-div" <?php if ($wproService != 'klandestino') echo ('style="display:none"'); ?> >
+            <h3><?php echo __('Klandestino CDN Settings'); ?></h3>
             <table class="form-table">
               <tr>
-                <th><label for="wpro-ftp-server">FTP Server</label></th>
-                <td><input name="wpro-ftp-server" id="wpro-ftp-server" type="text" value="<?php echo wpro_get_option('wpro-ftp-server'); ?>" class="regular-text code" /></td>
+                <th><label for="wpro-klandestino-name">Klandestino CDN Name</label></th>
+                <td><input name="wpro-klandestino-name" id="wpro-klandestino-name" type="text" value="<?php echo get_option('wpro-klandestino-name'); ?>" class="regular-text code" /></td>
               </tr>
               <tr>
-                <th><label for="wpro-ftp-user">FTP Username</label></th>
-                <td><input name="wpro-ftp-user" id="wpro-ftp-user" type="text" value="<?php echo wpro_get_option('wpro-ftp-user'); ?>" class="regular-text code" /></td>
+                <th><label for="wpro-klandestino-secret">Klandestino CDN Secret</label></th>
+                <td><input name="wpro-klandestino-secret" id="wpro-klandestino-secret" type="text" value="<?php echo get_option('wpro-klandestino-secret'); ?>" class="regular-text code" /></td>
               </tr>
             </table>
           </div>
@@ -502,15 +420,15 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
       while (is_dir($this->upload_basedir)) $this->upload_basedir = $this->tempdir . 'wpro' . time() . rand(0, 999999);
     }
     $data['basedir'] = $this->upload_basedir;
-    switch (wpro_get_option('wpro-service')) {
-    case 'ftp':
-      $data['baseurl'] = 'http://' . trim(str_replace('//', '/', trim(wpro_get_option('wpro-ftp-webroot'), '/') . '/' . trim(wpro_get_option('wpro-folder'))), '/');
+    switch (get_option('wpro-service')) {
+    case 'klandestino':
+      $data['baseurl'] = 'http://' . trim(str_replace('//', '/', 'cdn.klandestino.se/' . get_option('wpro-klandestino-name') . '/' . trim(get_option('wpro-folder'))), '/');
       break;
     default:
-      if (wpro_get_option('wpro-aws-virthost')) {
-        $data['baseurl'] = 'http://' . trim(str_replace('//', '/', wpro_get_option('wpro-aws-bucket') . '/' . trim(wpro_get_option('wpro-folder'))), '/');
+      if (get_option('wpro-aws-virthost')) {
+        $data['baseurl'] = 'http://' . trim(str_replace('//', '/', get_option('wpro-aws-bucket') . '/' . trim(get_option('wpro-folder'))), '/');
       } else {
-        $data['baseurl'] = 'http://' . trim(str_replace('//', '/', wpro_get_option('wpro-aws-bucket') . '.s3.amazonaws.com/' . trim(wpro_get_option('wpro-folder'))), '/');
+        $data['baseurl'] = 'http://' . trim(str_replace('//', '/', get_option('wpro-aws-bucket') . '.s3.amazonaws.com/' . trim(get_option('wpro-folder'))), '/');
       }
     }
     $data['path'] = $this->upload_basedir . $data['subdir'];
@@ -526,9 +444,9 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
     if (!is_array($data) || !isset($data['sizes']) || !is_array($data['sizes'])) return $data;
 
     $upload_dir = wp_upload_dir();
-    $filepath = $upload_dir['basedir'] . '/' . preg_replace('/^(.+\/)?.+$/', '\\1', $data['file']);
+    $filepath = $upload_dir['basedir'] . '/' . preg_replace('/^(.+)\/[^\/]+$/', '\\1', $data['file']);
     foreach ($data['sizes'] as $size => $sizedata) {
-      $file = $filepath . $sizedata['file'];
+      $file = $filepath . '/' . $sizedata['file'];
       $url = $upload_dir['baseurl'] . substr($file, strlen($upload_dir['basedir']));
 
       $mime = 'application/octet-stream';
@@ -570,10 +488,11 @@ class WordpressReadOnly extends WordpressReadOnlyGeneric {
       $ch = curl_init();
       curl_setopt($ch, CURLOPT_URL, $filepath);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
       curl_setopt($ch, CURLOPT_AUTOREFERER, true);
 
       $fh = fopen($tmpfile, 'w');
-      fwrite($fh, curl_exec_follow($ch));
+      fwrite($fh, curl_exec($ch));
       fclose($fh);
 
       $this->removeTemporaryLocalData($tmpfile);
