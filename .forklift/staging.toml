@@ -4,3 +4,4 @@ deploypack = "git@bitbucket.org:yvesvanbroekhoven/forklift-deploypack-wordpress.
 AWS_BUCKET = ""
 AWS_KEY = ""
 AWS_SECRET = ""
+
