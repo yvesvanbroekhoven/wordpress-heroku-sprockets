@@ -62,11 +62,11 @@ As naming convention we use app-name-s for staging and app-name-p for production
 [https://github.com/fd/forklift](https://github.com/fd/forklift)
 
 ```
-forklift deploy -t staging
+$ forklift deploy -t staging
 ```
 
 ### Rake
 
 ```
-bundle exec rake deploy:staging
-```
+$ bundle exec rake deploy:staging
+``
