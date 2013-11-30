@@ -69,4 +69,4 @@ $ forklift deploy -t staging
 
 ```
 $ bundle exec rake deploy:staging
-``
+```
