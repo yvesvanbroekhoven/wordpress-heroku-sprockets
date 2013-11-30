@@ -1,3 +1,13 @@
+#
+# Config your Heroku app & theme
+#
+APP_NAME      = "wordpress-heroku-sprockets"
+THEME_FOLDER  = "example-theme"
+
+
+#
+# No need to update below
+#
 require 'rubygems'
 require 'bundler'
 require 'pathname'
@@ -8,15 +18,13 @@ require "uglifier"
 
 Bundler.require
 
-APP_NAME      = "wordpress-heroku-sprockets"
-THEME_NAME    = "example-theme"
-
 ROOT          = Pathname(File.dirname(__FILE__))
 COMPASS_DIR   = Pathname(Gem.loaded_specs['compass'].full_gem_path)
-BUILD_DIR     = ROOT.join("wp-content/themes/#{THEME_NAME}/public")
-SOURCE_DIR    = ROOT.join("wp-content/themes/#{THEME_NAME}/assets")
+BUILD_DIR     = ROOT.join("wp-content/themes/#{THEME_FOLDER}/public")
+SOURCE_DIR    = ROOT.join("wp-content/themes/#{THEME_FOLDER}/assets")
 
 
+desc "Compile javascript & SCSS in #{THEME_FOLDER}"
 task :compile do
   sh "bower install"
 

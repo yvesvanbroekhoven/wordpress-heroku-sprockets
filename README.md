@@ -20,6 +20,13 @@ This means support instant support for:
 I've added an example theme named 'example-theme' with the necessary folder
 structure.
 
+### Configuration
+
+Update Rakefile with your theme folder name.
+
+
+### Commands
+
 Install dependencies:
 
 ```
@@ -39,6 +46,27 @@ $ bundle exec rake compile
 ```
 
 
-## TODO
+## Deploy to Heroku
 
-* Heroku deploy script
+### Configuration
+
+Update Rakefile with your Heroku app name. We like to work with 2 environments:
+
+* staging
+* production
+
+As naming convention we use app-name-s for staging and app-name-p for production.
+
+### Forklift
+
+[https://github.com/fd/forklift](https://github.com/fd/forklift)
+
+```
+forklift deploy -t staging
+```
+
+### Rake
+
+```
+bundle exec rake deploy:staging
+```
