@@ -70,3 +70,48 @@ $ forklift deploy -t staging
 ```
 $ bundle exec rake deploy:staging
 ```
+
+
+## Production environment
+
+### Cloudflare settings
+
+**Page rules**
+
+* http://url.com/*
+  forwarding to http://www.url.com/$1
+* \*url.com/wp-*
+  Always online: Off, Rocket Loader: Off, Cache level: Bypass cache
+* \*url.com/*
+  Always online: On, Cache expiration: 30 minutes, Cache level: Cache everything
+
+
+### Add cache headers
+
+Add this at line 1 in your header.php of your theme:
+
+```
+<?php
+  /*
+   * Write headers
+   */
+  $offset = 60 * 15; // 15 minutes
+  header("Expires: " . gmdate("D, d M Y H:i:s", time() + $offset) . " GMT");
+  header("Cache-Control: public, max-age=$offset, must-revalidate");
+  header("Pragma: public");
+?>
+```
+
+### Hide the admin bar on the frontend
+
+Be sure to do this when you're using Cloudflare. Otherwise your cache can end up with the admin bar inside.
+
+Add in your functions.php:
+
+```
+/**
+ * Hide admin bar on frontend
+ * More info: http://davidwalsh.name/hide-admin-bar-wordpress
+ */
+add_filter('show_admin_bar', '__return_false');
+```
